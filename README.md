@@ -19,6 +19,12 @@ Requirements
 
 Python 3.10+
 
+[Shadowsocks Windows client (`sslocal.exe`)]
+
+(https://github.com/shadowsocks/shadowsocks-windows/releases)
+
+IMPORTANT: IF you want to use unpacked raw files, you need to place `sslocal.exe` in the same folder as `main.py`. The .exe releases don't need any extra tool or dependencies.
+
 Install dependencies:
 
 pip install -r requirements.txt
