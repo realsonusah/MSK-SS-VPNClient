@@ -3,7 +3,7 @@ MSK Shadowsocks VPN Client (MSK-SS-VPN Client)
 A lightweight custom VPN client built with Python and PyQt6 to connect to Shadowsocks servers easily on Windows.
 Supports start/stop connection, system tray, and auto-reload of configs.
 
-Features:
+Features
 
 Simple GUI (PyQt6)
 
@@ -15,26 +15,19 @@ Runs sslocal.exe in background
 
 System tray support (optional)
 
-
 Requirements
 
 Python 3.10+
 
-
-Install dependencies
+Install dependencies:
 
 pip install -r requirements.txt
 
-
 Run
-
 python main.py
 
-
 Build EXE (Optional)
-
 pyinstaller --noconsole --onefile --icon=icon.ico main.py
-
 
 Files
 
