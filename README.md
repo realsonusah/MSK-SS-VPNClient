@@ -1,4 +1,4 @@
-# MSK Shadowsocks Client (MSK-SS-Client)
+# MSK Shadowsocks VPN Client (MSK-SS-VPN Client)
 Simple VPN client with outline ss key support which connect instantly.
 
 A lightweight Windows GUI client for connecting to Shadowsocks servers.
