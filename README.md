@@ -24,5 +24,7 @@ pyinstaller --noconsole --onefile --icon=icon.ico main.py
 
 Files
 main.py → Main application
+
 requirements.txt → Dependencies
+
 .gitignore → Ignores build and temp files
