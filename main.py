@@ -4,6 +4,8 @@ import subprocess
 import os
 import base64
 import psutil
+import requests
+import shutil
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QWidget, QLabel,
     QVBoxLayout, QLineEdit, QHBoxLayout, QSystemTrayIcon, QMenu, QAction
@@ -11,12 +13,19 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QTimer
 
+# ------------------ CONFIG ------------------
+CURRENT_VERSION = "1.0"
+GITHUB_OWNER = "realsonusah"
+GITHUB_REPO = "MSK-SS-VPNClient"
+UPDATE_CHECK_INTERVAL = 3600 * 1000  # 1 hour in milliseconds
+AUTO_RESTART_AFTER_UPDATE = True
+
 CONFIG_FILE = "config.json"
 SSLOCAL_PATH = "sslocal.exe"
 TEMP_CONFIG = "temp_ss_config.json"
 ICON_FILE = "icon.ico"
 
-
+# ------------------ MAIN CLASS ------------------
 class MSKClient(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -38,7 +47,14 @@ class MSKClient(QMainWindow):
         self.speed_timer.timeout.connect(self.update_speed)
         self.speed_timer.start(1000)  # 1 second
 
-    # ------------------ CONFIG ---------------------
+        # Timer for auto-update check
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.check_for_update)
+        self.update_timer.start(UPDATE_CHECK_INTERVAL)
+        # Check once at startup
+        self.check_for_update()
+
+    # ------------------ CONFIG ------------------
     def load_config(self):
         if not os.path.exists(CONFIG_FILE):
             default = {
@@ -58,7 +74,7 @@ class MSKClient(QMainWindow):
         with open(CONFIG_FILE, "w") as f:
             json.dump(self.config, f, indent=4)
 
-    # ------------------ UI ---------------------
+    # ------------------ UI ------------------
     def init_ui(self):
         self.central = QWidget()
         self.main_layout = QVBoxLayout()
@@ -86,17 +102,13 @@ class MSKClient(QMainWindow):
 
         # -------- Server IP + Port in one row --------
         row = QHBoxLayout()
-
         self.in_server = QLineEdit(self.config.get("server", ""))
         self.in_server.setPlaceholderText("Server IP")
-
         self.in_port = QLineEdit(self.config.get("port", ""))
         self.in_port.setPlaceholderText("Port")
         self.in_port.setMaximumWidth(80)
-
         row.addWidget(self.in_server)
         row.addWidget(self.in_port)
-
         settings_layout.addLayout(row)
 
         # -------- Password --------
@@ -131,7 +143,7 @@ class MSKClient(QMainWindow):
         self.settings_panel.setVisible(show)
         self.btn_show_settings.setText("Hide Settings" if show else "Show Settings")
 
-    # ------------------ Outline Key ---------------------
+    # ------------------ Outline Key ------------------
     def parse_outline_key(self):
         key = self.in_outline.text().strip()
         if not key.startswith("ss://"):
@@ -144,13 +156,10 @@ class MSKClient(QMainWindow):
                 missing_padding = 4 - (len(left) % 4)
                 if missing_padding != 4:
                     left += "=" * missing_padding
-
                 decoded = base64.urlsafe_b64decode(left).decode(errors="ignore")
                 method, password = decoded.split(":", 1)
-
                 server = right.split(":")[0]
-                port = right.split(":")[1].split("/")[0]  # Fix /?outline=1 issue
-
+                port = right.split(":")[1].split("/")[0]
                 self.in_method.setText(method)
                 self.in_pass.setText(password)
                 self.in_server.setText(server)
@@ -161,7 +170,7 @@ class MSKClient(QMainWindow):
         except Exception as e:
             print("Outline parse error:", e)
 
-    # ------------------ VPN ---------------------
+    # ------------------ VPN ------------------
     def toggle_vpn(self):
         if self.ss_process is None:
             self.start_vpn()
@@ -225,7 +234,7 @@ class MSKClient(QMainWindow):
         self.btn_toggle.setText("CONNECT")
         self.btn_toggle.setStyleSheet("font-size:22px; padding:20px;")
 
-    # ------------------ Network Speed ---------------------
+    # ------------------ Network Speed ------------------
     def update_speed(self):
         if self.ss_process is None:
             self.lbl_speed.setText("")
@@ -243,7 +252,47 @@ class MSKClient(QMainWindow):
 
         self.lbl_speed.setText(f"↑ {up_speed:.1f} KB/s | ↓ {down_speed:.1f} KB/s")
 
-    # ------------------ SysTray ---------------------
+    # ------------------ Auto Update ------------------
+    def check_for_update(self):
+        try:
+            url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                latest = response.json()
+                latest_version = latest["tag_name"].strip("v")
+                asset_name = f"MSK-SS-VPN-v{latest_version}.exe"
+                download_url = None
+                for asset in latest["assets"]:
+                    if asset["name"] == asset_name:
+                        download_url = asset["browser_download_url"]
+                        break
+                if download_url and latest_version != CURRENT_VERSION:
+                    print(f"New version {latest_version} available. Downloading...")
+                    self.download_update(download_url, asset_name)
+            else:
+                print("Failed to check update:", response.status_code)
+        except Exception as e:
+            print("Update check error:", e)
+
+    def download_update(self, url, filename):
+        try:
+            local_path = os.path.join(os.getcwd(), filename)
+            r = requests.get(url, stream=True)
+            with open(local_path, 'wb') as f:
+                shutil.copyfileobj(r.raw, f)
+            print(f"Downloaded new version to {local_path}")
+            if AUTO_RESTART_AFTER_UPDATE:
+                print("Restarting app to apply update...")
+                self.restart_app(local_path)
+        except Exception as e:
+            print("Download error:", e)
+
+    def restart_app(self, new_exe_path):
+        self.stop_vpn()
+        python = sys.executable
+        os.execv(new_exe_path, [new_exe_path])
+
+    # ------------------ SysTray ------------------
     def init_tray(self):
         icon = QIcon(ICON_FILE)
 
